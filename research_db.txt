@@ -1,0 +1,68 @@
+CREATE DATABASE research_db;
+USE research_db;
+
+--Research Papers Table
+CREATE TABLE research_papers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    keywords TEXT,
+    file_path VARCHAR(500), -- Stores file location or cloud link
+    status ENUM('Under Review', 'Published') DEFAULT 'Under Review',
+    publication_date DATE NULL,
+    upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+--Authors Table
+CREATE TABLE authors (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL
+);
+
+--Relationship Between Papers and Authors
+CREATE TABLE paper_authors (
+    paper_id INT,
+    author_id INT,
+    FOREIGN KEY (paper_id) REFERENCES research_papers(id) ON DELETE CASCADE,
+    FOREIGN KEY (author_id) REFERENCES authors(id) ON DELETE CASCADE,
+    PRIMARY KEY (paper_id, author_id)
+);
+
+
+--Preload Faculty into authors Table
+INSERT INTO authors (name) VALUES 
+('Dr. Prasthan Singh Rana'), 
+('Dr. Nitin Saxena');
+
+
+
+START TRANSACTION;
+
+-- Insert paper
+INSERT INTO research_papers (title, keywords, file_path, status) 
+VALUES ('Deep Learning in Education', 'AI, Education, Deep Learning', 'uploads/deep_learning.pdf', 'Under Review');
+
+-- Get paper ID of the newly inserted record
+SET @paper_id = LAST_INSERT_ID();
+
+-- Insert multiple authors dynamically
+INSERT INTO paper_authors (paper_id, author_id) 
+SELECT @paper_id, id FROM authors WHERE name IN ('Dr. Prasthan Singh Rana', 'Dr. Nitin Saxena');
+
+COMMIT;
+
+
+--Query with Dynamic Filtering
+SELECT rp.id, rp.title, rp.keywords, rp.file_path, rp.status, rp.publication_date, 
+       GROUP_CONCAT(a.name SEPARATOR ', ') AS authors
+FROM research_papers rp
+JOIN paper_authors pa ON rp.id = pa.paper_id
+JOIN authors a ON pa.author_id = a.id
+WHERE 
+    (@start_date IS NULL OR rp.publication_date >= @start_date) 
+    AND (@end_date IS NULL OR rp.publication_date <= @end_date) 
+    AND (@faculty_name IS NULL OR a.name = @faculty_name)
+    AND (@status IS NULL OR rp.status = @status)
+GROUP BY rp.id;
+
+
+
